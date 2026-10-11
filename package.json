@@ -1,0 +1,11 @@
+{
+  "name": "aws-cloud-website-root",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "start": "bash ./start.sh",
+    "dev": "bash ./start.sh",
+    "build": "cd frontend && ./node_modules/.bin/vite build",
+    "deploy:dry-run": "python3 backend/aws_deploy.py --dry-run"
+  }
+}
