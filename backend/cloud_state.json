@@ -1,0 +1,244 @@
+{
+  "probes": [
+    {
+      "id": "d41b77d0",
+      "url": "https://youtube.com",
+      "host": "youtube.com",
+      "scheme": "HTTPS",
+      "port": 443,
+      "timestamp": "2026-10-11 11:46:15 UTC",
+      "resolvedIp": "142.251.223.238",
+      "dnsMs": 15.85,
+      "tcpMs": 20.45,
+      "tlsMs": 31.3,
+      "ttfbMs": 83.01,
+      "totalMs": 155.34,
+      "statusCode": 301,
+      "reason": "Moved Permanently",
+      "tlsVersion": "TLSv1.3",
+      "tlsCipher": "TLS_AES_256_GCM_SHA384",
+      "headers": {
+        "Content-Type": "application/binary",
+        "X-Content-Type-Options": "nosniff",
+        "Expires": "Sun, 11 Oct 2026 11:46:15 GMT",
+        "Date": "Sun, 11 Oct 2026 11:46:15 GMT",
+        "Cache-Control": "private, max-age=31536000",
+        "Location": "https://www.youtube.com/",
+        "P3P": "CP=\"This is not a P3P policy! See g.co/p3phelp for more info.\"",
+        "X-Frame-Options": "SAMEORIGIN",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+        "Permissions-Policy": "ch-ua-arch=*, ch-ua-bitness=*, ch-ua-full-version=*, ch-ua-full-version-list=*, ch-ua-model=*, ch-ua-wow64=*, ch-ua-form-factors=*, ch-ua-platform=*, ch-ua-platform-version=*",
+        "Cross-Origin-Opener-Policy": "same-origin-allow-popups; report-to=\"youtube_main\"",
+        "Origin-Trial": "AiDEBptUfVeO93q48VdVMe/ubupazdAl8AaHP+NBzdnW8quUcHdzJUyGSfrmtpKJu7EOvwRp9ug2rEo3XU+WMAMAAAB2eyJvcmlnaW4iOiJodHRwczovL3lvdXR1YmUuY29tOjQ0MyIsImZlYXR1cmUiOiJEZXZpY2VCb3VuZFNlc3Npb25DcmVkZW50aWFsczIiLCJleHBpcnkiOjE3NzQzMTA0MDAsImlzU3ViZG9tYWluIjp0cnVlfQ==",
+        "Report-To": "{\"group\":\"youtube_main\",\"max_age\":2592000,\"endpoints\":[{\"url\":\"https://csp.withgoogle.com/csp/report-to/youtube_main\"}]}",
+        "Content-Security-Policy": "base-uri 'self';object-src 'none';script-src 'report-sample' 'nonce-lPhCEUMf6i9o2FSv5LvDVw' 'unsafe-inline' 'strict-dynamic' https: http: 'unsafe-eval';report-uri https://csp.withgoogle.com/csp/youtube_main/strict",
+        "Accept-CH": "Sec-CH-Viewport-Width, Sec-CH-DPR, Device-Memory",
+        "Vary": "Sec-CH-Viewport-Width, Sec-CH-DPR, Device-Memory",
+        "Server": "ESF",
+        "Content-Length": "0",
+        "X-XSS-Protection": "0",
+        "Set-Cookie": "__Secure-YNID=22.YT=TueIhX9KlUmwPzsNsk5eqZwXrYzqbaUMDSPNVIDY1VkJK_-Mhm0_oeyQSpkAyNWJrCvlij-HqUVEJQfrQZDWcU-EfEL1A2YlTdLgEVclZ4s2mFbe7WupNXhx-CFLtfyEQaPT0y8gneKx8AKk_lo3mWTwhTF_jiIKWpFnAg69nZh7PpvhNc4ae_Sk7nwUHfakEecNMtaNTUbygbGB715dVIxY-M9vJFnPY7Yxb4hP56WSewlNX0Tve6h8x19SluLeVpztEUnd_ndALl17riy_I1ARsAE4HDzTQPu5BVynOd_XhMYw52-cRRDzMKcbWmxUQzzvybN7OmMGJuKNc9wFtQ; expires=Fri, 09-Apr-2027 11:46:15 GMT; path=/; domain=.youtube.com; Secure; HttpOnly; SameSite=none",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+        "Connection": "close"
+      },
+      "contentLengthBytes": 0,
+      "error": null
+    },
+    {
+      "id": "d0d4b832",
+      "url": "https://vtop.vit.ac.in",
+      "host": "vtop.vit.ac.in",
+      "scheme": "HTTPS",
+      "port": 443,
+      "timestamp": "2026-10-11 11:46:01 UTC",
+      "resolvedIp": "122.184.65.23",
+      "dnsMs": 46.79,
+      "tcpMs": 62.08,
+      "tlsMs": 33.82,
+      "ttfbMs": 63.39,
+      "totalMs": 213.95,
+      "statusCode": 302,
+      "reason": "",
+      "tlsVersion": "TLSv1.3",
+      "tlsCipher": "TLS_AES_128_GCM_SHA256",
+      "headers": {
+        "location": "https://vtop.vit.ac.in/vtop",
+        "content-type": "text/html;charset=UTF-8",
+        "content-length": "0",
+        "date": "Sun, 11 Oct 2026 11:46:01 GMT",
+        "x-frame-options": "SAMEORIGIN",
+        "set-cookie": "SERVERID=s1; path=/",
+        "connection": "close"
+      },
+      "contentLengthBytes": 0,
+      "error": null
+    },
+    {
+      "id": "370289f8",
+      "url": "https://youtube.com",
+      "host": "youtube.com",
+      "scheme": "HTTPS",
+      "port": 443,
+      "timestamp": "2026-10-11 11:45:48 UTC",
+      "resolvedIp": "142.251.223.238",
+      "dnsMs": 181.49,
+      "tcpMs": 43.24,
+      "tlsMs": 57.24,
+      "ttfbMs": 114.25,
+      "totalMs": 436.32,
+      "statusCode": 301,
+      "reason": "Moved Permanently",
+      "tlsVersion": "TLSv1.3",
+      "tlsCipher": "TLS_AES_256_GCM_SHA384",
+      "headers": {
+        "Content-Type": "application/binary",
+        "X-Content-Type-Options": "nosniff",
+        "Expires": "Sun, 11 Oct 2026 11:45:48 GMT",
+        "Date": "Sun, 11 Oct 2026 11:45:48 GMT",
+        "Cache-Control": "private, max-age=31536000",
+        "Location": "https://www.youtube.com/",
+        "P3P": "CP=\"This is not a P3P policy! See g.co/p3phelp for more info.\"",
+        "X-Frame-Options": "SAMEORIGIN",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+        "Report-To": "{\"group\":\"youtube_main\",\"max_age\":2592000,\"endpoints\":[{\"url\":\"https://csp.withgoogle.com/csp/report-to/youtube_main\"}]}",
+        "Permissions-Policy": "ch-ua-arch=*, ch-ua-bitness=*, ch-ua-full-version=*, ch-ua-full-version-list=*, ch-ua-model=*, ch-ua-wow64=*, ch-ua-form-factors=*, ch-ua-platform=*, ch-ua-platform-version=*",
+        "Origin-Trial": "Ao9lPbOYlYWEB+SVHe5mV2bIoTe0cN+xJ2b6VhNakYPBFQ5MGU1Eg+nxeSLMbqnFlr2xj72d2bsU3ei2gfOpKg8AAABreyJvcmlnaW4iOiJodHRwczovL3lvdXR1YmUuY29tOjQ0MyIsImZlYXR1cmUiOiJDb25uZWN0aW9uQWxsb3dsaXN0IiwiZXhwaXJ5IjoxNzg4ODI1NjAwLCJpc1N1YmRvbWFpbiI6dHJ1ZX0=",
+        "Accept-CH": "Sec-CH-Viewport-Width, Sec-CH-DPR, Device-Memory",
+        "Vary": "Sec-CH-Viewport-Width, Sec-CH-DPR, Device-Memory",
+        "Content-Security-Policy": "base-uri 'self';object-src 'none';script-src 'report-sample' 'nonce-S6hq2LJqd31fa6-yuJyskg' 'unsafe-inline' 'strict-dynamic' https: http: 'unsafe-eval';report-uri https://csp.withgoogle.com/csp/youtube_main/strict",
+        "Cross-Origin-Opener-Policy": "same-origin-allow-popups; report-to=\"youtube_main\"",
+        "Server": "ESF",
+        "Content-Length": "0",
+        "X-XSS-Protection": "0",
+        "Set-Cookie": "__Secure-YNID=22.YT=qpxa5tmZO61-_kh0WlaKSVpAjtAxNp4_BIdQQQC3J9vGBI473kR5I2yiWd2RDiS87jB8wgMFWBT9GvUMsOL3yLXPfupDq3ZkyUJG2xzgjekEmZz03wVJw7VXLSRz1_LIxb0cE06GqXRuXyHtp3M0LH1L6lSh9VqbLcHso2N6FdYim53anO3OUnnXGa5kcgPTKQE2fJj59-emgGzr2Ak1fSqXZUz7InzBl27Q_iXr_kQqsR-PR1TI1t4uzSCCWmM4t69QkRQYE7vLjQxxsLKb0prON0WtF8sVSbUVDTbHSrXQSMnB7nxUKHlIBBVVqYl6gC7eVWRD-E1oYla8SuZNAg; expires=Fri, 09-Apr-2027 11:45:48 GMT; path=/; domain=.youtube.com; Secure; HttpOnly; SameSite=none",
+        "Alt-Svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+        "Connection": "close"
+      },
+      "contentLengthBytes": 0,
+      "error": null
+    }
+  ],
+  "alarms": [],
+  "invalidations": [],
+  "logs": [
+    {
+      "id": "685d9d65",
+      "timestamp": "2026-10-11 11:48:16 UTC",
+      "service": "Amazon-S3",
+      "level": "WARN",
+      "message": "DELETE Object s3://siddhesh-course-aws-live-bucket/mermaid-diagram.svg"
+    },
+    {
+      "id": "f53dcd9f",
+      "timestamp": "2026-10-11 11:48:11 UTC",
+      "service": "CloudWatch-Alarm",
+      "level": "WARN",
+      "message": "Deleted CloudWatch Alarm ID 47797b3b"
+    },
+    {
+      "id": "8db597ea",
+      "timestamp": "2026-10-11 11:48:06 UTC",
+      "service": "CloudWatch-Alarm",
+      "level": "ALERT",
+      "message": "Alarm 's3-storage-quota' transitioned OK -> ALARM (S3BucketSizeBytes=9363.0 > 150.0)"
+    },
+    {
+      "id": "5aa99941",
+      "timestamp": "2026-10-11 11:48:06 UTC",
+      "service": "Amazon-S3",
+      "level": "SUCCESS",
+      "message": "PUT Object s3://siddhesh-course-aws-live-bucket/mermaid-diagram.svg (9363 bytes, MIME=image/svg+xml, ETag=\"a7feeb2dccd017571623c5c8b5df9c37\")"
+    },
+    {
+      "id": "929ec01f",
+      "timestamp": "2026-10-11 11:47:58 UTC",
+      "service": "CloudWatch-Alarm",
+      "level": "INFO",
+      "message": "Alarm 's3-storage-quota' transitioned INSUFFICIENT_DATA -> OK (S3BucketSizeBytes=0.0 > 150.0)"
+    },
+    {
+      "id": "fcb5917d",
+      "timestamp": "2026-10-11 11:47:58 UTC",
+      "service": "CloudWatch-Alarm",
+      "level": "INFO",
+      "message": "Created custom CloudWatch Alarm 's3-storage-quota': Trigger when S3BucketSizeBytes > 150.0"
+    },
+    {
+      "id": "1c0bcb3f",
+      "timestamp": "2026-10-11 11:47:45 UTC",
+      "service": "CloudWatch-Alarm",
+      "level": "WARN",
+      "message": "Deleted CloudWatch Alarm ID d7f4c1df"
+    },
+    {
+      "id": "6a73da0b",
+      "timestamp": "2026-10-11 11:47:35 UTC",
+      "service": "CloudWatch-Alarm",
+      "level": "ALERT",
+      "message": "Alarm 'S3-Storage-Quota' transitioned INSUFFICIENT_DATA -> ALARM (S3BucketSizeBytes=0.0 < 150.0)"
+    },
+    {
+      "id": "23b8141f",
+      "timestamp": "2026-10-11 11:47:35 UTC",
+      "service": "CloudWatch-Alarm",
+      "level": "INFO",
+      "message": "Created custom CloudWatch Alarm 'S3-Storage-Quota': Trigger when S3BucketSizeBytes < 150.0"
+    },
+    {
+      "id": "75e1ccfb",
+      "timestamp": "2026-10-11 11:46:50 UTC",
+      "service": "Amazon-S3",
+      "level": "WARN",
+      "message": "DELETE Object s3://siddhesh-course-aws-live-bucket/mermaid-diagram.svg"
+    },
+    {
+      "id": "ad839ddf",
+      "timestamp": "2026-10-11 11:46:30 UTC",
+      "service": "Amazon-S3",
+      "level": "SUCCESS",
+      "message": "PUT Object s3://siddhesh-course-aws-live-bucket/mermaid-diagram.svg (9363 bytes, MIME=image/svg+xml, ETag=\"a7feeb2dccd017571623c5c8b5df9c37\")"
+    },
+    {
+      "id": "42c27925",
+      "timestamp": "2026-10-11 11:46:15 UTC",
+      "service": "CloudWatch-Metrics",
+      "level": "SUCCESS",
+      "message": "Probed https://youtube.com -> HTTP 301 (DNS: 15.85ms, TCP: 20.45ms, TLS: 31.3ms, TTFB: 83.01ms, Total: 155.34ms)"
+    },
+    {
+      "id": "a8569af5",
+      "timestamp": "2026-10-11 11:46:15 UTC",
+      "service": "CloudWatch-Synthetics",
+      "level": "INFO",
+      "message": "Initiating live network probe for youtube.com"
+    },
+    {
+      "id": "acdb6f0e",
+      "timestamp": "2026-10-11 11:46:02 UTC",
+      "service": "CloudWatch-Metrics",
+      "level": "SUCCESS",
+      "message": "Probed https://vtop.vit.ac.in -> HTTP 302 (DNS: 46.79ms, TCP: 62.08ms, TLS: 33.82ms, TTFB: 63.39ms, Total: 213.95ms)"
+    },
+    {
+      "id": "0dc5b6af",
+      "timestamp": "2026-10-11 11:46:01 UTC",
+      "service": "CloudWatch-Synthetics",
+      "level": "INFO",
+      "message": "Initiating live network probe for vtop.vit.ac.in"
+    },
+    {
+      "id": "d7a748ca",
+      "timestamp": "2026-10-11 11:45:48 UTC",
+      "service": "CloudWatch-Metrics",
+      "level": "SUCCESS",
+      "message": "Probed https://youtube.com -> HTTP 301 (DNS: 181.49ms, TCP: 43.24ms, TLS: 57.24ms, TTFB: 114.25ms, Total: 436.32ms)"
+    },
+    {
+      "id": "2ee638de",
+      "timestamp": "2026-10-11 11:45:48 UTC",
+      "service": "CloudWatch-Synthetics",
+      "level": "INFO",
+      "message": "Initiating live network probe for youtube.com"
+    }
+  ]
+}

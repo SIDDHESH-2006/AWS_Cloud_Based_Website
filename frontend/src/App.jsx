@@ -1,15 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Cloud,
-  Server,
-  ShieldCheck,
   Activity,
   Globe,
   Database,
   AlertTriangle,
   CheckCircle2,
   RefreshCw,
-  ArrowUpRight,
   Lock,
   Zap,
   Terminal,
@@ -17,191 +14,244 @@ import {
   Clock,
   Layers,
   HardDrive,
-  Radio,
-  Cpu,
-  ExternalLink
+  Upload,
+  Trash2,
+  Eye,
+  PlusCircle,
+  Send,
+  FileText,
+  Download,
+  ShieldAlert,
+  Sparkles,
+  Server
 } from 'lucide-react';
 
-const INITIAL_METRICS = {
-  environment: 'AWS us-east-1 (N. Virginia)',
-  source: 'Live Telemetry Simulator / CloudWatch API',
-  s3: {
-    bucketName: 'siddhesh-course-aws-cloudpulse-static',
-    region: 'us-east-1',
-    storageSizeMB: 14.8,
-    objectCount: 42,
-    getRequests24h: 128450,
-    putRequests24h: 18,
-    availability: '99.99%',
-    publicAccessBlock: 'Enabled (OAC Restricted)'
-  },
-  cloudfront: {
-    distributionId: 'E2X9K4L7M1P8Q',
-    domainName: 'd1x8k9p2m4n7q.cloudfront.net',
-    priceClass: 'PriceClass_100 (US, Canada, Europe, Asia)',
-    cacheHitRate: 94.6,
-    originLatencyMs: 38,
-    edgeLatencyMs: 11,
-    totalRequests24h: 142890,
-    bandwidthGB: 19.4,
-    httpsStatus: 'TLSv1.3 Enforced',
-    error4xxRate: 0.12,
-    error5xxRate: 0.01
-  },
-  alarms: [
-    {
-      name: 'CloudFront-5xxErrorRate-High',
-      metric: '5xxErrorRate < 1.0%',
-      state: 'OK',
-      value: '0.01%',
-      updatedAt: '2 mins ago'
-    },
-    {
-      name: 'CloudFront-CacheHitRate-Low',
-      metric: 'CacheHitRate > 85%',
-      state: 'OK',
-      value: '94.6%',
-      updatedAt: '1 min ago'
-    },
-    {
-      name: 'S3-OriginLatency-P95',
-      metric: 'OriginLatency < 100ms',
-      state: 'OK',
-      value: '38ms',
-      updatedAt: 'Just now'
-    },
-    {
-      name: 'Billing-EstimatedCharges-Threshold',
-      metric: 'EstimatedCharges <= $5.00',
-      state: 'OK',
-      value: '$0.42',
-      updatedAt: '5 mins ago'
-    }
-  ],
-  timeSeries: [
-    { time: '00:00', requests: 3900, cacheHit: 93.2, latency: 13, errors: 2 },
-    { time: '04:00', requests: 2800, cacheHit: 94.0, latency: 12, errors: 1 },
-    { time: '08:00', requests: 8400, cacheHit: 94.8, latency: 11, errors: 3 },
-    { time: '12:00', requests: 14200, cacheHit: 95.4, latency: 10, errors: 4 },
-    { time: '16:00', requests: 16900, cacheHit: 95.1, latency: 11, errors: 2 },
-    { time: '20:00', requests: 11500, cacheHit: 94.3, latency: 12, errors: 1 },
-    { time: '24:00', requests: 9600, cacheHit: 94.6, latency: 11, errors: 0 }
-  ],
-  edgeLocations: [
-    { city: 'Mumbai (BOM52)', trafficShare: 38, latency: '9ms', status: 'Healthy' },
-    { city: 'N. Virginia (IAD89)', trafficShare: 27, latency: '11ms', status: 'Healthy' },
-    { city: 'Frankfurt (FRA60)', trafficShare: 18, latency: '14ms', status: 'Healthy' },
-    { city: 'Singapore (SIN52)', trafficShare: 11, latency: '15ms', status: 'Healthy' },
-    { city: 'Tokyo (NRT57)', trafficShare: 6, latency: '18ms', status: 'Healthy' }
-  ]
-};
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+}
 
 export default function App() {
-  const [metrics, setMetrics] = useState(INITIAL_METRICS);
-  const [backendConnected, setBackendConnected] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [archMode, setArchMode] = useState('cloudfront-oac'); // 'cloudfront-oac' | 's3-public'
-  const [activeMetricTab, setActiveMetricTab] = useState('requests');
-  const [simulatedSpike, setSimulatedSpike] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState(new Date().toLocaleTimeString());
+  const [cloudState, setCloudState] = useState({
+    s3: { bucketName: 'siddhesh-course-aws-live-bucket', region: 'us-east-1', objectCount: 0, totalSizeBytes: 0, objects: [] },
+    probes: [],
+    alarms: [],
+    invalidations: [],
+    logs: []
+  });
+  const [backendOnline, setBackendOnline] = useState(false);
 
-  const fetchMetrics = async (spike = false) => {
-    setLoading(true);
+  // 1. Live URL Probe Form State
+  const [urlInput, setUrlInput] = useState('');
+  const [probing, setProbing] = useState(false);
+  const [probeError, setProbeError] = useState('');
+  const [selectedProbe, setSelectedProbe] = useState(null);
+
+  // 2. Interactive S3 File Manager State
+  const [uploading, setUploading] = useState(false);
+  const [inspectedObject, setInspectedObject] = useState(null);
+  const fileInputRef = useRef(null);
+
+  // 3. CloudFront Cache Invalidation & Custom CloudWatch Alarm Creator State
+  const [invalidationPaths, setInvalidationPaths] = useState('');
+  const [invalidating, setInvalidating] = useState(false);
+
+  const [alarmName, setAlarmName] = useState('');
+  const [alarmMetric, setAlarmMetric] = useState('TotalLatencyMs');
+  const [alarmOperator, setAlarmOperator] = useState('>');
+  const [alarmThreshold, setAlarmThreshold] = useState('');
+  const [creatingAlarm, setCreatingAlarm] = useState(false);
+
+  const fetchState = async () => {
     try {
-      const res = await fetch(`/api/metrics${spike ? '?spike=true' : ''}`);
+      const res = await fetch('/api/state');
       if (res.ok) {
         const data = await res.json();
-        setMetrics(data);
-        setBackendConnected(true);
-        setSimulatedSpike(spike);
-        setLastUpdated(new Date().toLocaleTimeString());
-        setLoading(false);
-        return;
+        setCloudState(data);
+        setBackendOnline(true);
+        if (data.probes.length > 0 && !selectedProbe) {
+          setSelectedProbe(data.probes[0]);
+        }
+      } else {
+        setBackendOnline(false);
       }
     } catch {
-      // Fallback to client-side live jitter so static S3 hosting also works seamlessly
+      setBackendOnline(false);
     }
-
-    setBackendConnected(false);
-    setSimulatedSpike(spike);
-    setMetrics((prev) => {
-      const multiplier = spike ? 2.4 : 1;
-      const jitter = Math.floor(Math.random() * 450) - 180;
-      const newTotalReq = Math.max(100000, Math.round(INITIAL_METRICS.cloudfront.totalRequests24h * multiplier + jitter));
-      const newHitRate = spike ? 88.4 : Number((94.1 + Math.random() * 1.3).toFixed(1));
-      const newEdgeLat = spike ? 24 : Math.max(8, 11 + Math.floor(Math.random() * 3) - 1);
-
-      return {
-        ...prev,
-        cloudfront: {
-          ...prev.cloudfront,
-          totalRequests24h: newTotalReq,
-          cacheHitRate: newHitRate,
-          edgeLatencyMs: newEdgeLat,
-          error5xxRate: spike ? 1.42 : 0.01
-        },
-        alarms: prev.alarms.map((a) => {
-          if (spike && a.name === 'CloudFront-5xxErrorRate-High') {
-            return { ...a, state: 'ALARM', value: '1.42%', updatedAt: 'Just now' };
-          }
-          if (!spike && a.name === 'CloudFront-5xxErrorRate-High') {
-            return { ...a, state: 'OK', value: '0.01%', updatedAt: 'Just now' };
-          }
-          return a;
-        }),
-        timeSeries: INITIAL_METRICS.timeSeries.map((pt, idx) =>
-          idx === INITIAL_METRICS.timeSeries.length - 1
-            ? {
-                ...pt,
-                requests: Math.round(pt.requests * multiplier + Math.random() * 500),
-                cacheHit: newHitRate,
-                latency: newEdgeLat,
-                errors: spike ? 38 : 1
-              }
-            : pt
-        )
-      };
-    });
-    setLastUpdated(new Date().toLocaleTimeString());
-    setLoading(false);
   };
 
   useEffect(() => {
-    fetchMetrics(false);
-    const interval = setInterval(() => {
-      fetchMetrics(simulatedSpike);
-    }, 8000);
-    return () => clearInterval(interval);
-  }, [simulatedSpike]);
+    fetchState();
+    const timer = setInterval(fetchState, 4000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Handler 1: Run Real-Time URL Probe
+  const handleRunProbe = async (e) => {
+    e.preventDefault();
+    if (!urlInput.trim()) return;
+    setProbing(true);
+    setProbeError('');
+    try {
+      const res = await fetch('/api/probe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlInput.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setProbeError(data.error || 'Failed to probe URL');
+      } else {
+        setSelectedProbe(data.probe);
+        setUrlInput('');
+        await fetchState();
+      }
+    } catch (err) {
+      setProbeError(err.message);
+    } finally {
+      setProbing(false);
+    }
+  };
+
+  // Handler 2: Upload Real File to S3 Bucket Storage
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setUploading(true);
+    try {
+      for (const file of files) {
+        const base64Content = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result || '';
+            const base64 = result.includes(',') ? result.split(',')[1] : '';
+            resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        await fetch('/api/s3/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: file.name,
+            contentBase64: base64Content
+          })
+        });
+      }
+      await fetchState();
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteS3Object = async (key) => {
+    await fetch(`/api/s3/object/${encodeURIComponent(key)}`, { method: 'DELETE' });
+    if (inspectedObject && inspectedObject.key === key) {
+      setInspectedObject(null);
+    }
+    await fetchState();
+  };
+
+  // Handler 3: Create Custom CloudWatch Alarm
+  const handleCreateAlarm = async (e) => {
+    e.preventDefault();
+    if (!alarmName.trim() || alarmThreshold === '') return;
+    setCreatingAlarm(true);
+    try {
+      const res = await fetch('/api/alarms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: alarmName.trim(),
+          metric: alarmMetric,
+          operator: alarmOperator,
+          threshold: Number(alarmThreshold)
+        })
+      });
+      if (res.ok) {
+        setAlarmName('');
+        setAlarmThreshold('');
+        await fetchState();
+      }
+    } finally {
+      setCreatingAlarm(false);
+    }
+  };
+
+  const handleDeleteAlarm = async (id) => {
+    await fetch(`/api/alarms/${id}`, { method: 'DELETE' });
+    await fetchState();
+  };
+
+  // Handler 4: Trigger CloudFront Cache Invalidation
+  const handleInvalidateCache = async (e) => {
+    e.preventDefault();
+    if (!invalidationPaths.trim()) return;
+    setInvalidating(true);
+    try {
+      const res = await fetch('/api/cloudfront/invalidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths: invalidationPaths.trim() })
+      });
+      if (res.ok) {
+        setInvalidationPaths('');
+        await fetchState();
+      }
+    } finally {
+      setInvalidating(false);
+    }
+  };
+
+  const handleClearData = async (target) => {
+    await fetch('/api/clear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target })
+    });
+    if (target === 'probes') setSelectedProbe(null);
+    await fetchState();
+  };
+
+  const activeProbe = selectedProbe || cloudState.probes[0] || null;
+  const alarmCountInDanger = cloudState.alarms.filter((a) => a.state === 'ALARM').length;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* Top Status Banner */}
-      <div className="bg-gradient-to-r from-amber-500/10 via-sky-500/10 to-emerald-500/10 border-b border-slate-800/80 px-4 py-2 text-xs">
+      {/* Top Telemetry Bar */}
+      <div className="bg-slate-900 border-b border-slate-800 px-4 py-2 text-xs">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              AWS Cloud Architecture Active
+            <span
+              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-medium border ${
+                backendOnline
+                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                  : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${backendOnline ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+              {backendOnline ? 'Python Live Cloud Backend Connected (:8000)' : 'Backend Disconnected'}
             </span>
-            <span className="text-slate-400 hidden sm:inline">
-              Amazon S3 + Amazon CloudFront CDN + Amazon CloudWatch Telemetry
+            <span className="text-slate-400 hidden md:inline">
+              100% Real-Time User-Driven Execution • Zero Pre-loaded Sample Data
             </span>
           </div>
-          <div className="flex items-center gap-4 text-slate-400 font-mono">
-            <span>
-              Telemetry Source:{' '}
-              <strong className={backendConnected ? 'text-sky-400' : 'text-amber-400'}>
-                {backendConnected ? 'Python CloudWatch API (:8000)' : 'Static Client Telemetry'}
-              </strong>
-            </span>
-            <span>Updated: {lastUpdated}</span>
+          <div className="flex items-center gap-4 font-mono text-slate-400">
+            <span>Probes Logged: <strong className="text-amber-400">{cloudState.probes.length}</strong></span>
+            <span>S3 Objects: <strong className="text-sky-400">{cloudState.s3.objectCount}</strong></span>
+            <span>Active Alarms: <strong className={alarmCountInDanger > 0 ? 'text-rose-400' : 'text-emerald-400'}>{cloudState.alarms.length}</strong></span>
           </div>
         </div>
       </div>
 
-      {/* Navigation */}
-      <header className="sticky top-0 z-40 backdrop-blur-md bg-slate-950/85 border-b border-slate-800/80">
+      {/* Header */}
+      <header className="sticky top-0 z-40 backdrop-blur-md bg-slate-950/90 border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
@@ -209,683 +259,696 @@ export default function App() {
             </div>
             <div>
               <div className="font-bold text-base tracking-tight flex items-center gap-2">
-                CloudPulse <span className="text-amber-400">AWS</span>
-                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                  S3 • CloudFront • CloudWatch
-                </span>
+                CloudPulse <span className="text-amber-400">Live Console</span>
               </div>
-              <p className="text-xs text-slate-400">Cloud-Based Static Website with Real-Time Monitoring</p>
+              <p className="text-xs text-slate-400">Real-Time URL Telemetry, S3 Object Storage & CloudFront/CloudWatch Engine</p>
             </div>
           </div>
 
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300">
-            <a href="#overview" className="hover:text-amber-400 transition-colors">Overview</a>
-            <a href="#dashboard" className="hover:text-amber-400 transition-colors">CloudWatch Dashboard</a>
-            <a href="#architecture" className="hover:text-amber-400 transition-colors">AWS Architecture</a>
-            <a href="#deployment" className="hover:text-amber-400 transition-colors">Deployment & Verification</a>
+            <a href="#probe-section" className="hover:text-amber-400 transition-colors">1. URL Telemetry Probe</a>
+            <a href="#s3-section" className="hover:text-amber-400 transition-colors">2. S3 File Manager</a>
+            <a href="#cloudfront-alarms" className="hover:text-amber-400 transition-colors">3. CloudFront & Alarms</a>
+            <a href="#live-logs" className="hover:text-amber-400 transition-colors">4. Backend Log Stream</a>
+            <a href="#architecture" className="hover:text-amber-400 transition-colors">Architecture</a>
           </nav>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => fetchMetrics(!simulatedSpike)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 cursor-pointer ${
-                simulatedSpike
-                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30'
-                  : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-amber-500/50 hover:text-amber-300'
-              }`}
-            >
-              <AlertTriangle className="w-3.5 h-3.5" />
-              {simulatedSpike ? 'Clear Traffic Spike' : 'Simulate Traffic Spike'}
-            </button>
-            <button
-              onClick={() => fetchMetrics(simulatedSpike)}
-              className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 transition-colors cursor-pointer"
-              title="Refresh CloudWatch Metrics"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-amber-400' : ''}`} />
-            </button>
-          </div>
         </div>
       </header>
 
-      <main className="flex-1">
-        {/* 1. HOMEPAGE INTRODUCING THE PROJECT */}
-        <section id="overview" className="relative overflow-hidden py-16 sm:py-20 border-b border-slate-800/80">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-slate-950 to-slate-950 pointer-events-none" />
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-            <div className="grid lg:grid-cols-12 gap-10 items-center">
-              <div className="lg:col-span-7 space-y-6">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium">
-                  <Zap className="w-3.5 h-3.5" />
-                  Cloud Deployment & Observability Project
-                </div>
-
-                <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white leading-[1.15]">
-                  High-Availability Static Web Hosting with{' '}
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-400 to-sky-400">
-                    Global CDN & CloudWatch Monitoring
-                  </span>
-                </h1>
-
-                <p className="text-slate-300 text-base sm:text-lg leading-relaxed max-w-2xl">
-                  This project demonstrates a production-grade cloud architecture on AWS combining{' '}
-                  <strong className="text-white">Amazon S3</strong> for durable object storage,{' '}
-                  <strong className="text-white">Amazon CloudFront</strong> for low-latency global content delivery over HTTPS, and{' '}
-                  <strong className="text-white">Amazon CloudWatch</strong> for real-time operational metrics and automated health alarms.
-                </p>
-
-                <div className="flex flex-wrap gap-3 pt-2">
-                  <a
-                    href="#dashboard"
-                    className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-sm flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all"
-                  >
-                    <Activity className="w-4 h-4" />
-                    Explore Live CloudWatch Dashboard
-                  </a>
-                  <a
-                    href="#architecture"
-                    className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-medium text-sm flex items-center gap-2 transition-all"
-                  >
-                    <Layers className="w-4 h-4 text-sky-400" />
-                    Inspect AWS Architecture
-                  </a>
-                </div>
-
-                {/* Core AWS Pillars */}
-                <div className="grid sm:grid-cols-3 gap-4 pt-4">
-                  <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800">
-                    <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm mb-1">
-                      <HardDrive className="w-4 h-4" />
-                      Amazon S3
-                    </div>
-                    <p className="text-xs text-slate-400">
-                      11 9s durability static asset hosting with Origin Access Control (OAC) protection.
-                    </p>
-                  </div>
-                  <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800">
-                    <div className="flex items-center gap-2 text-sky-400 font-semibold text-sm mb-1">
-                      <Globe className="w-4 h-4" />
-                      Amazon CloudFront
-                    </div>
-                    <p className="text-xs text-slate-400">
-                      Edge caching across 450+ PoPs with enforced TLS 1.3 HTTPS & custom cache policies.
-                    </p>
-                  </div>
-                  <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800">
-                    <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm mb-1">
-                      <BarChart3 className="w-4 h-4" />
-                      Amazon CloudWatch
-                    </div>
-                    <p className="text-xs text-slate-400">
-                      Real-time telemetry for Request Count, Cache Hit Ratio, Error Rates & Latency alarms.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Interactive Live Status Card */}
-              <div className="lg:col-span-5">
-                <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-6 shadow-2xl space-y-5">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
-                      <span className="font-semibold text-sm text-white">Live Deployment Health Summary</span>
-                    </div>
-                    <span className="text-xs font-mono text-slate-400">{metrics.cloudfront.distributionId}</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800/90">
-                      <span className="text-xs text-slate-400 block">CDN Domain Endpoint</span>
-                      <span className="font-mono text-xs text-sky-400 font-medium truncate block mt-1">
-                        https://{metrics.cloudfront.domainName}
-                      </span>
-                    </div>
-                    <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800/90">
-                      <span className="text-xs text-slate-400 block">Origin S3 Bucket</span>
-                      <span className="font-mono text-xs text-amber-400 font-medium truncate block mt-1">
-                        s3://{metrics.s3.bucketName}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400">HTTPS Security Policy</span>
-                      <span className="text-emerald-400 font-mono flex items-center gap-1">
-                        <Lock className="w-3.5 h-3.5" /> {metrics.cloudfront.httpsStatus}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400">S3 Public Access Block</span>
-                      <span className="text-slate-200 font-mono">{metrics.s3.publicAccessBlock}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400">Edge Cache Efficiency</span>
-                      <span className="text-amber-400 font-mono font-semibold">{metrics.cloudfront.cacheHitRate}% Hit Ratio</span>
-                    </div>
-                    <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-amber-500 to-emerald-400 h-full transition-all duration-500"
-                        style={{ width: `${metrics.cloudfront.cacheHitRate}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-                    <span>CloudWatch Alarms Status</span>
-                    {simulatedSpike ? (
-                      <span className="text-rose-400 font-semibold flex items-center gap-1">
-                        <AlertTriangle className="w-3.5 h-3.5" /> 1 Alarm in ALARM State
-                      </span>
-                    ) : (
-                      <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> All 4 Alarms OK
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+        {/* =====================================================================
+            FEATURE 1: REAL-TIME URL NETWORK TELEMETRY PROBE -> CLOUDWATCH METRICS
+           ===================================================================== */}
+        <section id="probe-section" className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-slate-800 pb-4">
+            <div>
+              <span className="text-xs font-mono uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5" /> Amazon CloudWatch Synthetics & Real-Time Network Probe
+              </span>
+              <h2 className="text-2xl font-bold text-white mt-1">
+                1. Live URL Latency, TLS & Header Inspector
+              </h2>
+              <p className="text-sm text-slate-400">
+                Enter any URL below. The Python backend opens a real socket to measure DNS lookup time, TCP handshake, TLS negotiation, TTFB, HTTP status code, and response headers, then logs the metrics to CloudWatch.
+              </p>
             </div>
+            {cloudState.probes.length > 0 && (
+              <button
+                onClick={() => handleClearData('probes')}
+                className="text-xs text-slate-400 hover:text-rose-400 border border-slate-800 px-3 py-1.5 rounded-lg cursor-pointer self-start"
+              >
+                Clear Probe History
+              </button>
+            )}
           </div>
-        </section>
 
-        {/* 2. DASHBOARD SHOWING SAMPLE INFORMATION & CLOUDWATCH TELEMETRY */}
-        <section id="dashboard" className="py-16 border-b border-slate-800/80">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-              <div>
-                <div className="text-xs font-mono uppercase tracking-wider text-amber-400 mb-1 flex items-center gap-1.5">
-                  <Radio className="w-3.5 h-3.5" /> Amazon CloudWatch Observability Dashboard
-                </div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-white">
-                  Real-Time S3 & CloudFront Telemetry
-                </h2>
-                <p className="text-sm text-slate-400 mt-1">
-                  Monitoring edge request volume, cache hit efficiency, origin latency, and automated CloudWatch alarm thresholds.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                <span className="text-xs text-slate-400">Region:</span>
-                <span className="px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-xs font-mono text-slate-200">
-                  {metrics.environment}
-                </span>
-              </div>
+          {/* URL Input Form */}
+          <form onSubmit={handleRunProbe} className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Globe className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                placeholder="Enter a URL to probe in real time (e.g., https://aws.amazon.com or https://github.com)"
+                className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono"
+              />
             </div>
+            <button
+              type="submit"
+              disabled={probing || !urlInput.trim()}
+              className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
+            >
+              {probing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Measuring Live Socket...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" /> Measure & Log to CloudWatch
+                </>
+              )}
+            </button>
+          </form>
 
-            {/* 4 Key KPI Cards */}
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800/90 space-y-2">
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span>Total Edge Requests (24h)</span>
-                  <Globe className="w-4 h-4 text-sky-400" />
-                </div>
-                <div className="text-2xl font-bold font-mono text-white">
-                  {metrics.cloudfront.totalRequests24h.toLocaleString()}
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-emerald-400 flex items-center gap-0.5">
-                    <ArrowUpRight className="w-3.5 h-3.5" /> +12.4% vs yesterday
-                  </span>
-                  <span className="text-slate-500 font-mono">{metrics.cloudfront.bandwidthGB} GB</span>
-                </div>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800/90 space-y-2">
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span>CloudFront Cache Hit Rate</span>
-                  <Zap className="w-4 h-4 text-amber-400" />
-                </div>
-                <div className="text-2xl font-bold font-mono text-white">
-                  {metrics.cloudfront.cacheHitRate}%
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Origin Offload</span>
-                  <span className="text-amber-400 font-mono">Target &gt; 85%</span>
-                </div>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800/90 space-y-2">
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span>Avg Edge / Origin Latency</span>
-                  <Clock className="w-4 h-4 text-emerald-400" />
-                </div>
-                <div className="text-2xl font-bold font-mono text-white">
-                  {metrics.cloudfront.edgeLatencyMs}ms{' '}
-                  <span className="text-sm font-normal text-slate-400">
-                    / {metrics.cloudfront.originLatencyMs}ms
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-emerald-400">71% Faster via Edge PoP</span>
-                  <span className="text-slate-500 font-mono">P95 SLA</span>
-                </div>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800/90 space-y-2">
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span>4xx / 5xx Error Rate</span>
-                  <ShieldCheck className="w-4 h-4 text-rose-400" />
-                </div>
-                <div className="text-2xl font-bold font-mono text-white">
-                  {metrics.cloudfront.error4xxRate}%{' '}
-                  <span className={`text-sm font-normal ${simulatedSpike ? 'text-rose-400 font-bold' : 'text-slate-400'}`}>
-                    / {metrics.cloudfront.error5xxRate}%
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className={simulatedSpike ? 'text-rose-400' : 'text-emerald-400'}>
-                    {simulatedSpike ? 'Spike Detected!' : 'Within normal threshold'}
-                  </span>
-                  <span className="text-slate-500 font-mono">Threshold &lt; 1%</span>
-                </div>
-              </div>
+          {probeError && (
+            <div className="p-4 rounded-xl bg-rose-950/50 border border-rose-500/40 text-rose-300 text-xs font-mono">
+              Error: {probeError}
             </div>
+          )}
 
-            {/* Interactive Chart & Alarms Grid */}
+          {/* Probe Output Area */}
+          {cloudState.probes.length === 0 ? (
+            <div className="p-10 rounded-2xl bg-slate-900/50 border border-dashed border-slate-800 text-center space-y-2">
+              <Globe className="w-8 h-8 text-slate-600 mx-auto" />
+              <div className="text-sm font-medium text-slate-300">No URLs probed yet</div>
+              <p className="text-xs text-slate-500">
+                Type any domain or URL above and click &ldquo;Measure &amp; Log to CloudWatch&rdquo; to see live DNS, TCP, TLS, TTFB, status code, and HTTP response headers.
+              </p>
+            </div>
+          ) : (
             <div className="grid lg:grid-cols-12 gap-6">
-              {/* Time-Series Telemetry Chart */}
-              <div className="lg:col-span-8 rounded-2xl bg-slate-900/70 border border-slate-800 p-6 flex flex-col justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                    <div>
-                      <h3 className="font-semibold text-white text-base">
-                        CloudWatch Metric Stream (24-Hour Window)
-                      </h3>
-                      <p className="text-xs text-slate-400">
-                        Namespace: <code className="text-amber-300">AWS/CloudFront</code> &amp; <code className="text-sky-300">AWS/S3</code>
-                      </p>
-                    </div>
-                    <div className="flex rounded-lg bg-slate-950 p-1 border border-slate-800 text-xs">
-                      {[
-                        { id: 'requests', label: 'Requests' },
-                        { id: 'cacheHit', label: 'Cache Hit %' },
-                        { id: 'latency', label: 'Latency (ms)' }
-                      ].map((tab) => (
-                        <button
-                          key={tab.id}
-                          onClick={() => setActiveMetricTab(tab.id)}
-                          className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-                            activeMetricTab === tab.id
-                              ? 'bg-amber-500 text-slate-950'
-                              : 'text-slate-400 hover:text-white'
+              {/* Left: Detailed Breakdown of Selected Probe */}
+              <div className="lg:col-span-7 space-y-4">
+                {activeProbe && (
+                  <div className="rounded-2xl bg-slate-900 border border-slate-800 p-6 space-y-5">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-4">
+                      <div>
+                        <span className="text-xs font-mono text-slate-400 block">{activeProbe.timestamp}</span>
+                        <h3 className="font-mono font-bold text-base text-amber-400 break-all">{activeProbe.url}</h3>
+                      </div>
+                      {activeProbe.error ? (
+                        <span className="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 font-mono text-xs font-bold">
+                          PROBE ERROR
+                        </span>
+                      ) : (
+                        <span
+                          className={`px-3 py-1 rounded-full font-mono text-xs font-bold border ${
+                            activeProbe.statusCode >= 200 && activeProbe.statusCode < 400
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                              : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
                           }`}
                         >
-                          {tab.label}
-                        </button>
-                      ))}
+                          HTTP {activeProbe.statusCode} {activeProbe.reason}
+                        </span>
+                      )}
                     </div>
-                  </div>
 
-                  {/* Bar Visualization */}
-                  <div className="h-56 flex items-end gap-3 sm:gap-5 pt-6 px-2 border-b border-slate-800">
-                    {metrics.timeSeries.map((pt) => {
-                      const maxVal =
-                        activeMetricTab === 'requests'
-                          ? 42000
-                          : activeMetricTab === 'cacheHit'
-                          ? 100
-                          : 35;
-                      const val = pt[activeMetricTab];
-                      const heightPct = Math.min(100, Math.max(12, Math.round((val / maxVal) * 100)));
-
-                      return (
-                        <div key={pt.time} className="flex-1 flex flex-col items-center gap-2 group">
-                          <span className="text-[11px] font-mono text-slate-300 opacity-85 group-hover:text-amber-300 transition-colors">
-                            {activeMetricTab === 'requests'
-                              ? `${(val / 1000).toFixed(1)}k`
-                              : activeMetricTab === 'cacheHit'
-                              ? `${val}%`
-                              : `${val}ms`}
-                          </span>
-                          <div className="w-full bg-slate-950 rounded-t-lg h-40 flex items-end overflow-hidden border border-slate-800/70">
-                            <div
-                              className={`w-full rounded-t-md transition-all duration-500 ${
-                                activeMetricTab === 'requests'
-                                  ? 'bg-gradient-to-t from-amber-600/80 to-amber-400'
-                                  : activeMetricTab === 'cacheHit'
-                                  ? 'bg-gradient-to-t from-sky-600/80 to-sky-400'
-                                  : 'bg-gradient-to-t from-emerald-600/80 to-emerald-400'
-                              }`}
-                              style={{ height: `${heightPct}%` }}
-                            />
-                          </div>
-                          <span className="text-[11px] font-mono text-slate-400 pb-2">{pt.time}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Edge PoP Distribution Table */}
-                <div className="mt-6 pt-4">
-                  <h4 className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-3">
-                    Top CloudFront Edge Locations Serving Requests
-                  </h4>
-                  <div className="grid sm:grid-cols-5 gap-2.5">
-                    {metrics.edgeLocations.map((edge) => (
-                      <div
-                        key={edge.city}
-                        className="p-2.5 rounded-xl bg-slate-950 border border-slate-800/80 text-xs"
-                      >
-                        <div className="font-medium text-slate-200 truncate">{edge.city}</div>
-                        <div className="flex items-center justify-between mt-1 font-mono text-[11px]">
-                          <span className="text-amber-400">{edge.trafficShare}%</span>
-                          <span className="text-emerald-400">{edge.latency}</span>
-                        </div>
+                    {activeProbe.error ? (
+                      <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-500/30 text-xs font-mono text-rose-300">
+                        {activeProbe.error}
                       </div>
+                    ) : (
+                      <>
+                        {/* 5 Real-Time Timing Metrics */}
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                            <span className="text-[11px] text-slate-400 block">DNS Lookup</span>
+                            <span className="text-lg font-bold font-mono text-sky-400">{activeProbe.dnsMs} ms</span>
+                          </div>
+                          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                            <span className="text-[11px] text-slate-400 block">TCP Connect</span>
+                            <span className="text-lg font-bold font-mono text-emerald-400">{activeProbe.tcpMs} ms</span>
+                          </div>
+                          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                            <span className="text-[11px] text-slate-400 block">TLS Handshake</span>
+                            <span className="text-lg font-bold font-mono text-purple-400">{activeProbe.tlsMs} ms</span>
+                          </div>
+                          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                            <span className="text-[11px] text-slate-400 block">TTFB Wait</span>
+                            <span className="text-lg font-bold font-mono text-amber-400">{activeProbe.ttfbMs} ms</span>
+                          </div>
+                          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 col-span-2 sm:col-span-1">
+                            <span className="text-[11px] text-slate-400 block">Total Time</span>
+                            <span className="text-lg font-bold font-mono text-white">{activeProbe.totalMs} ms</span>
+                          </div>
+                        </div>
+
+                        {/* Connection & TLS Metadata */}
+                        <div className="grid sm:grid-cols-3 gap-3 text-xs font-mono">
+                          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                            <span className="text-slate-500 block">Resolved IP</span>
+                            <span className="text-slate-200">{activeProbe.resolvedIp}:{activeProbe.port}</span>
+                          </div>
+                          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                            <span className="text-slate-500 block">TLS Protocol</span>
+                            <span className="text-emerald-400">{activeProbe.tlsVersion || 'Plain HTTP'}</span>
+                          </div>
+                          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                            <span className="text-slate-500 block">TLS Cipher</span>
+                            <span className="text-slate-200 truncate block" title={activeProbe.tlsCipher}>
+                              {activeProbe.tlsCipher || 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Live Response Headers */}
+                        <div>
+                          <h4 className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-2">
+                            Real-Time HTTP Response Headers ({Object.keys(activeProbe.headers || {}).length})
+                          </h4>
+                          <div className="max-h-52 overflow-y-auto rounded-xl bg-slate-950 border border-slate-800 p-3 font-mono text-xs space-y-1">
+                            {Object.entries(activeProbe.headers || {}).map(([k, v]) => (
+                              <div key={k} className="flex gap-2 border-b border-slate-900 pb-1">
+                                <span className="text-amber-400 shrink-0">{k}:</span>
+                                <span className="text-slate-300 break-all">{v}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Right: CloudWatch Logged Probes History & Chart */}
+              <div className="lg:col-span-5 rounded-2xl bg-slate-900 border border-slate-800 p-6 flex flex-col justify-between space-y-4">
+                <div>
+                  <h3 className="font-semibold text-white text-sm flex items-center justify-between">
+                    <span>CloudWatch Logged Probe Metrics ({cloudState.probes.length})</span>
+                    <span className="text-xs font-mono text-slate-400">Click row to inspect</span>
+                  </h3>
+
+                  <div className="mt-4 space-y-2 max-h-96 overflow-y-auto pr-1">
+                    {cloudState.probes.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => setSelectedProbe(p)}
+                        className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                          activeProbe && activeProbe.id === p.id
+                            ? 'bg-amber-500/10 border-amber-500/50'
+                            : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <div className="font-mono text-xs text-white truncate">{p.url}</div>
+                          <div className="text-[11px] font-mono text-slate-400 mt-0.5">
+                            DNS: {p.dnsMs}ms • TLS: {p.tlsMs}ms • TTFB: {p.ttfbMs}ms
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                              p.statusCode >= 200 && p.statusCode < 400
+                                ? 'bg-emerald-500/20 text-emerald-300'
+                                : 'bg-rose-500/20 text-rose-300'
+                            }`}
+                          >
+                            {p.error ? 'ERR' : `HTTP ${p.statusCode}`}
+                          </span>
+                          <div className="text-xs font-mono font-bold text-amber-400 mt-1">{p.totalMs} ms</div>
+                        </div>
+                      </button>
                     ))}
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+        </section>
 
-              {/* CloudWatch Alarms & S3 Bucket Inspector */}
-              <div className="lg:col-span-4 space-y-6">
-                <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-white text-base flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-400" />
-                      CloudWatch Alarms
-                    </h3>
-                    <span className="text-xs font-mono text-slate-400">SNS Topic Linked</span>
+        {/* =====================================================================
+            FEATURE 2: INTERACTIVE S3 BUCKET FILE MANAGER
+           ===================================================================== */}
+        <section id="s3-section" className="space-y-6 pt-4 border-t border-slate-800">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            <div>
+              <span className="text-xs font-mono uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                <HardDrive className="w-3.5 h-3.5" /> Amazon S3 Object Storage Engine
+              </span>
+              <h2 className="text-2xl font-bold text-white mt-1">
+                2. Interactive S3 Bucket File Manager
+              </h2>
+              <p className="text-sm text-slate-400">
+                Upload any file from your computer to the Python-backed S3 bucket (`s3://{cloudState.s3.bucketName}`), inspect real MD5 ETag hashes, MIME types, byte sizes, download objects, or delete them.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                onChange={handleFileUpload}
+                className="hidden"
+                id="s3-file-upload-input"
+              />
+              <label
+                htmlFor="s3-file-upload-input"
+                className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-sm flex items-center gap-2 cursor-pointer transition-all shadow-lg shadow-sky-500/20"
+              >
+                <Upload className="w-4 h-4" />
+                {uploading ? 'Uploading to S3...' : 'Upload Files to S3 Bucket'}
+              </label>
+            </div>
+          </div>
+
+          {/* S3 Bucket Summary Bar */}
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
+              <span className="text-xs text-slate-400 block">Target S3 Bucket URI</span>
+              <span className="font-mono text-sm text-sky-400 font-semibold mt-1 block">
+                s3://{cloudState.s3.bucketName}
+              </span>
+            </div>
+            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
+              <span className="text-xs text-slate-400 block">Live CloudWatch `NumberOfObjects`</span>
+              <span className="font-mono text-xl text-white font-bold mt-1 block">
+                {cloudState.s3.objectCount} object(s)
+              </span>
+            </div>
+            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
+              <span className="text-xs text-slate-400 block">Live CloudWatch `BucketSizeBytes`</span>
+              <span className="font-mono text-xl text-emerald-400 font-bold mt-1 block">
+                {formatBytes(cloudState.s3.totalSizeBytes)} ({cloudState.s3.totalSizeBytes.toLocaleString()} B)
+              </span>
+            </div>
+          </div>
+
+          {/* S3 Objects Table & Inspector */}
+          {cloudState.s3.objects.length === 0 ? (
+            <div className="p-10 rounded-2xl bg-slate-900/50 border border-dashed border-slate-800 text-center space-y-2">
+              <Database className="w-8 h-8 text-slate-600 mx-auto" />
+              <div className="text-sm font-medium text-slate-300">S3 Bucket is currently empty (0 objects)</div>
+              <p className="text-xs text-slate-500">
+                Click &ldquo;Upload Files to S3 Bucket&rdquo; above to upload images, HTML, JSON, PDFs, or any file from your machine.
+              </p>
+            </div>
+          ) : (
+            <div className="grid lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-8 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 bg-slate-950 text-slate-400 font-mono">
+                      <th className="py-3 px-4">Object Key</th>
+                      <th className="py-3 px-4">MIME Type</th>
+                      <th className="py-3 px-4">Size</th>
+                      <th className="py-3 px-4">Last Modified</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/70 font-mono">
+                    {cloudState.s3.objects.map((obj) => (
+                      <tr key={obj.key} className="hover:bg-slate-800/40">
+                        <td className="py-3 px-4 font-semibold text-white">{obj.key}</td>
+                        <td className="py-3 px-4 text-sky-400">{obj.mimeType}</td>
+                        <td className="py-3 px-4 text-slate-300">{formatBytes(obj.sizeBytes)}</td>
+                        <td className="py-3 px-4 text-slate-400">{obj.lastModified}</td>
+                        <td className="py-3 px-4 text-right space-x-2">
+                          <button
+                            onClick={() => setInspectedObject(obj)}
+                            className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 cursor-pointer inline-flex items-center gap-1"
+                            title="Inspect Object Metadata"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> Inspect
+                          </button>
+                          <a
+                            href={`/api/s3/download/${encodeURIComponent(obj.key)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 inline-flex items-center gap-1"
+                            title="View / Download Object"
+                          >
+                            <Download className="w-3.5 h-3.5" /> Open
+                          </a>
+                          <button
+                            onClick={() => handleDeleteS3Object(obj.key)}
+                            className="px-2.5 py-1 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 cursor-pointer inline-flex items-center gap-1"
+                            title="Delete Object from S3"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Object Metadata Inspector Panel */}
+              <div className="lg:col-span-4 rounded-2xl bg-slate-900 border border-slate-800 p-5 space-y-3">
+                <h3 className="font-semibold text-sm text-white flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-amber-400" />
+                  S3 Object Metadata Inspector
+                </h3>
+                {!inspectedObject ? (
+                  <p className="text-xs text-slate-500">
+                    Click &ldquo;Inspect&rdquo; on any uploaded S3 object to view its full S3 headers, MD5 ETag, and byte size.
+                  </p>
+                ) : (
+                  <div className="space-y-2.5 text-xs font-mono bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    <div>
+                      <span className="text-slate-500 block">S3 URI</span>
+                      <span className="text-amber-400 break-all">
+                        s3://{cloudState.s3.bucketName}/{inspectedObject.key}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Content-Type (MIME)</span>
+                      <span className="text-sky-400">{inspectedObject.mimeType}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Content-Length</span>
+                      <span className="text-white">
+                        {inspectedObject.sizeBytes.toLocaleString()} bytes ({formatBytes(inspectedObject.sizeBytes)})
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">ETag (MD5 Checksum)</span>
+                      <span className="text-emerald-400 break-all">{inspectedObject.etag}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Storage Class</span>
+                      <span className="text-slate-300">{inspectedObject.storageClass}</span>
+                    </div>
                   </div>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
 
-                  <div className="space-y-3">
-                    {metrics.alarms.map((alarm) => (
-                      <div
-                        key={alarm.name}
-                        className={`p-3.5 rounded-xl border text-xs transition-all ${
-                          alarm.state === 'ALARM'
-                            ? 'bg-rose-950/40 border-rose-500/50'
-                            : 'bg-slate-950 border-slate-800/90'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between font-medium">
-                          <span className="text-slate-200 truncate">{alarm.name}</span>
+        {/* =====================================================================
+            FEATURE 3: CLOUDFRONT CACHE INVALIDATION & CUSTOM CLOUDWATCH ALARMS
+           ===================================================================== */}
+        <section id="cloudfront-alarms" className="space-y-6 pt-4 border-t border-slate-800">
+          <div>
+            <span className="text-xs font-mono uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5" /> Edge Cache Purge & Custom CloudWatch Alarm Rules
+            </span>
+            <h2 className="text-2xl font-bold text-white mt-1">
+              3. Live CloudFront Cache Invalidation &amp; Custom Alarm Creator
+            </h2>
+            <p className="text-sm text-slate-400">
+              Create your own CloudWatch Alarm thresholds (evaluated automatically against your live URL probes and S3 uploads) or purge specific object paths from CloudFront edge caches.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Left Column: Custom CloudWatch Alarm Creator */}
+            <div className="rounded-2xl bg-slate-900 border border-slate-800 p-6 space-y-5">
+              <h3 className="font-semibold text-base text-white flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                Create Custom CloudWatch Alarm Rule
+              </h3>
+
+              <form onSubmit={handleCreateAlarm} className="space-y-3 text-xs">
+                <div>
+                  <label className="text-slate-400 block mb-1">Alarm Name</label>
+                  <input
+                    type="text"
+                    value={alarmName}
+                    onChange={(e) => setAlarmName(e.target.value)}
+                    placeholder="e.g., High-Total-Latency-Alert or S3-Storage-Quota"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-slate-400 block mb-1">Metric</label>
+                    <select
+                      value={alarmMetric}
+                      onChange={(e) => setAlarmMetric(e.target.value)}
+                      className="w-full px-2.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono"
+                    >
+                      <option value="TotalLatencyMs">TotalLatencyMs (Probe)</option>
+                      <option value="DnsLookupMs">DnsLookupMs (Probe)</option>
+                      <option value="TlsHandshakeMs">TlsHandshakeMs (Probe)</option>
+                      <option value="TtfbMs">TtfbMs (Probe)</option>
+                      <option value="HttpStatusCode">HttpStatusCode (Probe)</option>
+                      <option value="S3BucketSizeBytes">S3BucketSizeBytes</option>
+                      <option value="S3ObjectCount">S3ObjectCount</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-slate-400 block mb-1">Condition</label>
+                    <select
+                      value={alarmOperator}
+                      onChange={(e) => setAlarmOperator(e.target.value)}
+                      className="w-full px-2.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono"
+                    >
+                      <option value=">">&gt; (Greater than)</option>
+                      <option value=">=">&gt;= (Greater or equal)</option>
+                      <option value="<">&lt; (Less than)</option>
+                      <option value="<=">&lt;= (Less or equal)</option>
+                      <option value="==">== (Equal to)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-slate-400 block mb-1">Threshold Value</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={alarmThreshold}
+                      onChange={(e) => setAlarmThreshold(e.target.value)}
+                      placeholder="e.g., 150"
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={creatingAlarm || !alarmName.trim() || alarmThreshold === ''}
+                  className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <PlusCircle className="w-4 h-4" /> Create &amp; Evaluate CloudWatch Alarm
+                </button>
+              </form>
+
+              {/* Active User-Created Alarms List */}
+              <div className="space-y-2.5 pt-2 border-t border-slate-800">
+                <div className="text-xs font-mono text-slate-400">
+                  Your Configured Alarms ({cloudState.alarms.length})
+                </div>
+                {cloudState.alarms.length === 0 ? (
+                  <p className="text-xs text-slate-500 py-4 text-center">
+                    No alarms created yet. Create an alarm rule above (for example: <code className="text-slate-300">TotalLatencyMs &gt; 100</code>) and run a URL probe to watch it trigger!
+                  </p>
+                ) : (
+                  cloudState.alarms.map((alarm) => (
+                    <div
+                      key={alarm.id}
+                      className={`p-3.5 rounded-xl border text-xs flex items-center justify-between gap-3 ${
+                        alarm.state === 'ALARM'
+                          ? 'bg-rose-950/40 border-rose-500/50'
+                          : alarm.state === 'OK'
+                          ? 'bg-emerald-950/20 border-emerald-500/30'
+                          : 'bg-slate-950 border-slate-800'
+                      }`}
+                    >
+                      <div>
+                        <div className="font-semibold text-white flex items-center gap-2">
+                          {alarm.name}
                           <span
-                            className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
+                            className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
                               alarm.state === 'ALARM'
                                 ? 'bg-rose-500 text-slate-950'
-                                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : alarm.state === 'OK'
+                                ? 'bg-emerald-500/20 text-emerald-300'
+                                : 'bg-slate-800 text-slate-400'
                             }`}
                           >
                             {alarm.state}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between text-slate-400 mt-1.5 font-mono text-[11px]">
-                          <span>{alarm.metric}</span>
-                          <span className="text-white">Current: {alarm.value}</span>
+                        <div className="font-mono text-[11px] text-slate-400 mt-1">
+                          Rule: <span className="text-amber-300">{alarm.metric} {alarm.operator} {alarm.threshold}</span> • Current Value: <strong className="text-white">{alarm.currentValue}</strong>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
+                      <button
+                        onClick={() => handleDeleteAlarm(alarm.id)}
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 cursor-pointer"
+                        title="Delete Alarm"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
 
-                {/* S3 Bucket Storage Details */}
-                <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-6 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-white text-base flex items-center gap-2">
-                      <Database className="w-4 h-4 text-sky-400" />
-                      Amazon S3 Origin Metrics
-                    </h3>
-                    <span className="text-xs font-mono text-emerald-400">{metrics.s3.availability}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2.5 text-xs">
-                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                      <span className="text-slate-400 block">Bucket SizeBytes</span>
-                      <span className="text-base font-bold font-mono text-white mt-0.5 block">
-                        {metrics.s3.storageSizeMB} MB
-                      </span>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                      <span className="text-slate-400 block">NumberOfObjects</span>
-                      <span className="text-base font-bold font-mono text-white mt-0.5 block">
-                        {metrics.s3.objectCount} files
-                      </span>
-                    </div>
-                  </div>
+            {/* Right Column: Live CloudFront Cache Invalidation */}
+            <div className="rounded-2xl bg-slate-900 border border-slate-800 p-6 space-y-5">
+              <h3 className="font-semibold text-base text-white flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 text-sky-400" />
+                Trigger CloudFront Edge Cache Invalidation
+              </h3>
+
+              <form onSubmit={handleInvalidateCache} className="space-y-3 text-xs">
+                <div>
+                  <label className="text-slate-400 block mb-1">
+                    Object Paths to Purge (comma-separated, e.g. <code className="text-sky-300">/*</code> or <code className="text-sky-300">/index.html, /logo.png</code>)
+                  </label>
+                  <input
+                    type="text"
+                    value={invalidationPaths}
+                    onChange={(e) => setInvalidationPaths(e.target.value)}
+                    placeholder="Enter path pattern to invalidate (e.g., /*)"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono"
+                  />
                 </div>
+                <button
+                  type="submit"
+                  disabled={invalidating || !invalidationPaths.trim()}
+                  className="w-full py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-slate-950 font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Zap className="w-4 h-4" /> Purge CloudFront Edge Cache Now
+                </button>
+              </form>
+
+              <div className="space-y-2.5 pt-2 border-t border-slate-800">
+                <div className="text-xs font-mono text-slate-400">
+                  Invalidation Execution History ({cloudState.invalidations.length})
+                </div>
+                {cloudState.invalidations.length === 0 ? (
+                  <p className="text-xs text-slate-500 py-4 text-center">
+                    No cache invalidations executed yet. Enter a path like <code className="text-slate-300">/*</code> above to purge matching S3 objects from edge locations.
+                  </p>
+                ) : (
+                  cloudState.invalidations.map((inv) => (
+                    <div key={inv.id} className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sky-400 font-bold">ID: {inv.id}</span>
+                        <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px]">
+                          {inv.status}
+                        </span>
+                      </div>
+                      <div className="text-slate-300">Paths: {inv.paths.join(', ')}</div>
+                      <div className="text-slate-400 text-[11px]">
+                        Purged {inv.matchedObjectsCount} matching S3 object(s) • {inv.createdAt}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
         </section>
 
-        {/* 3. SECTION EXPLAINING THE AWS ARCHITECTURE */}
-        <section id="architecture" className="py-16 border-b border-slate-800/80 bg-slate-900/30">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-              <div>
-                <div className="text-xs font-mono uppercase tracking-wider text-sky-400 mb-1">
-                  System Design & Security Comparison
-                </div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-white">
-                  How the AWS Architecture Works
-                </h2>
-                <p className="text-sm text-slate-400 mt-1 max-w-2xl">
-                  S3 static website hosting and CloudFront can be configured in two ways. Compare the recommended{' '}
-                  <strong className="text-white">CloudFront + Private S3 (OAC)</strong> architecture against a basic{' '}
-                  <strong className="text-white">Public S3 Website Endpoint</strong>.
-                </p>
-              </div>
-
-              {/* Architecture Mode Switcher */}
-              <div className="flex rounded-xl bg-slate-900 p-1 border border-slate-800 text-xs self-start">
-                <button
-                  onClick={() => setArchMode('cloudfront-oac')}
-                  className={`px-3.5 py-2 rounded-lg font-medium transition-all cursor-pointer ${
-                    archMode === 'cloudfront-oac'
-                      ? 'bg-amber-500 text-slate-950 font-semibold'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Recommended: CloudFront + S3 (HTTPS OAC)
-                </button>
-                <button
-                  onClick={() => setArchMode('s3-public')}
-                  className={`px-3.5 py-2 rounded-lg font-medium transition-all cursor-pointer ${
-                    archMode === 's3-public'
-                      ? 'bg-amber-500 text-slate-950 font-semibold'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Basic: Public S3 Website Endpoint (HTTP)
-                </button>
-              </div>
-            </div>
-
-            {/* Visual Flow Pipeline */}
-            <div className="grid md:grid-cols-4 gap-4">
-              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 relative">
-                <span className="text-[11px] font-mono text-amber-400 uppercase">Step 1 • Client Request</span>
-                <h3 className="font-bold text-white text-base mt-1 flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-amber-400" /> End User Browser
-                </h3>
-                <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                  {archMode === 'cloudfront-oac'
-                    ? 'User connects via HTTPS (TLS 1.3). DNS routes the request to the nearest Amazon CloudFront Edge Location.'
-                    : 'User connects directly to the S3 Website Endpoint over plain HTTP (no native SSL/TLS termination).'}
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 relative">
-                <span className="text-[11px] font-mono text-sky-400 uppercase">Step 2 • Edge CDN Layer</span>
-                <h3 className="font-bold text-white text-base mt-1 flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-sky-400" /> Amazon CloudFront
-                </h3>
-                <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                  {archMode === 'cloudfront-oac'
-                    ? 'Checks Edge Cache first (94.6% hit ratio). If cached, responds in ~11ms. On cache miss, signs request via Origin Access Control (OAC).'
-                    : 'Bypassed in basic S3-only mode. Every request travels all the way to the regional S3 bucket without global edge caching.'}
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 relative">
-                <span className="text-[11px] font-mono text-emerald-400 uppercase">Step 3 • Origin Storage</span>
-                <h3 className="font-bold text-white text-base mt-1 flex items-center gap-2">
-                  <HardDrive className="w-4 h-4 text-emerald-400" /> Amazon S3 Bucket
-                </h3>
-                <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                  {archMode === 'cloudfront-oac'
-                    ? 'Bucket remains strictly PRIVATE (Block Public Access enabled). Bucket Policy only permits s3:GetObject from the CloudFront Distribution ARN.'
-                    : 'Bucket must disable Block Public Access and use a public-read Bucket Policy so browsers can fetch index.html directly.'}
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 relative">
-                <span className="text-[11px] font-mono text-purple-400 uppercase">Step 4 • Observability</span>
-                <h3 className="font-bold text-white text-base mt-1 flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-purple-400" /> Amazon CloudWatch
-                </h3>
-                <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                  Collects 1-minute metrics (`Requests`, `BytesDownloaded`, `4xxErrorRate`, `5xxErrorRate`) and triggers CloudWatch Alarms if anomalies occur.
-                </p>
-              </div>
-            </div>
-
-            {/* Comparison Table */}
-            <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
-              <table className="w-full text-left border-collapse text-xs sm:text-sm">
-                <thead>
-                  <tr className="border-b border-slate-800 bg-slate-900/80 text-slate-300">
-                    <th className="py-3.5 px-4 font-semibold">Architectural Feature</th>
-                    <th className="py-3.5 px-4 font-semibold text-amber-400">
-                      S3 + CloudFront (OAC) — Implemented
-                    </th>
-                    <th className="py-3.5 px-4 font-semibold text-slate-400">
-                      Public S3 Website Endpoint Only
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/70 text-slate-300">
-                  <tr>
-                    <td className="py-3 px-4 font-medium">HTTPS / TLS Support</td>
-                    <td className="py-3 px-4 text-emerald-400 font-mono">Yes (Default CloudFront SSL + ACM Custom Certs)</td>
-                    <td className="py-3 px-4 text-rose-400 font-mono">No (HTTP only on S3 website endpoints)</td>
-                  </tr>
-                  <tr>
-                    <td className="py-3 px-4 font-medium">S3 Bucket Security</td>
-                    <td className="py-3 px-4 text-emerald-400">Private Bucket (Block All Public Access = ON)</td>
-                    <td className="py-3 px-4 text-amber-300">Public Bucket Policy Required</td>
-                  </tr>
-                  <tr>
-                    <td className="py-3 px-4 font-medium">Global Latency</td>
-                    <td className="py-3 px-4 text-emerald-400">~10–20 ms via 450+ Global Edge PoPs</td>
-                    <td className="py-3 px-4 text-slate-400">50–250 ms depending on distance to S3 Region</td>
-                  </tr>
-                  <tr>
-                    <td className="py-3 px-4 font-medium">SPA Routing (`index.html` fallback)</td>
-                    <td className="py-3 px-4">Custom Error Response (403/404 → `/index.html` 200 OK)</td>
-                    <td className="py-3 px-4">S3 Error Document Configuration</td>
-                  </tr>
-                  <tr>
-                    <td className="py-3 px-4 font-medium">CloudWatch Monitoring</td>
-                    <td className="py-3 px-4 text-emerald-400">Rich CDN Edge Metrics + S3 Storage Metrics</td>
-                    <td className="py-3 px-4 text-slate-400">Basic S3 Storage & Request Metrics</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        {/* 4. DEPLOYMENT & ACCESSIBILITY VERIFICATION */}
-        <section id="deployment" className="py-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        {/* =====================================================================
+            FEATURE 4: LIVE BACKEND LOG STREAM CONSOLE
+           ===================================================================== */}
+        <section id="live-logs" className="space-y-4 pt-4 border-t border-slate-800">
+          <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs font-mono uppercase tracking-wider text-emerald-400 mb-1">
-                Automated Provisioning & Verification
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-white">
-                Deploy & Demonstrate Accessibility
+              <span className="text-xs font-mono uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+                <Terminal className="w-3.5 h-3.5" /> Real-Time CloudWatch Log Group (`/aws/cloudpulse/operations`)
+              </span>
+              <h2 className="text-xl font-bold text-white mt-0.5">
+                4. Live Python Backend Event &amp; Telemetry Log Stream
               </h2>
-              <p className="text-sm text-slate-400 mt-1">
-                Includes a Python `boto3` deployment & monitoring automation script (`backend/aws_deploy.py`) to provision S3, CloudFront OAC, and CloudWatch Dashboard & Alarms in one command.
+            </div>
+            {cloudState.logs.length > 0 && (
+              <button
+                onClick={() => handleClearData('logs')}
+                className="text-xs text-slate-400 hover:text-rose-400 border border-slate-800 px-3 py-1.5 rounded-lg cursor-pointer"
+              >
+                Clear Logs
+              </button>
+            )}
+          </div>
+
+          <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4 font-mono text-xs max-h-72 overflow-y-auto space-y-1.5">
+            {cloudState.logs.length === 0 ? (
+              <div className="text-slate-500 py-8 text-center">
+                Waiting for user events... Probe a URL, upload a file to S3, create an alarm, or run a cache invalidation to watch live backend logs stream here.
+              </div>
+            ) : (
+              cloudState.logs.map((log) => (
+                <div key={log.id} className="flex flex-wrap items-start gap-2 py-1 border-b border-slate-800/60">
+                  <span className="text-slate-500 shrink-0">[{log.timestamp}]</span>
+                  <span
+                    className={`px-1.5 py-0.2 rounded text-[10px] font-bold shrink-0 ${
+                      log.level === 'ALERT' || log.level === 'ERROR'
+                        ? 'bg-rose-500/20 text-rose-300'
+                        : log.level === 'WARN'
+                        ? 'bg-amber-500/20 text-amber-300'
+                        : 'bg-emerald-500/20 text-emerald-300'
+                    }`}
+                  >
+                    {log.service}
+                  </span>
+                  <span className="text-slate-200 break-all">{log.message}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        {/* =====================================================================
+            SECTION 5: AWS ARCHITECTURE EXPLANATION
+           ===================================================================== */}
+        <section id="architecture" className="space-y-6 pt-4 border-t border-slate-800">
+          <div>
+            <span className="text-xs font-mono uppercase tracking-wider text-amber-400">
+              AWS Architecture Reference
+            </span>
+            <h2 className="text-2xl font-bold text-white mt-1">
+              How S3, CloudFront, CloudWatch &amp; the Python Telemetry Engine Work Together
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-5 text-xs">
+            <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+              <div className="font-bold text-white text-sm flex items-center gap-2">
+                <HardDrive className="w-4 h-4 text-sky-400" /> 1. Amazon S3 Object Storage
+              </div>
+              <p className="text-slate-400 leading-relaxed">
+                Stores static web assets and user-uploaded files with MD5 `ETag` integrity verification, MIME detection, and real-time `BucketSizeBytes` and `NumberOfObjects` tracking.
               </p>
             </div>
-
-            <div className="grid lg:grid-cols-2 gap-6">
-              <div className="rounded-2xl bg-slate-900 border border-slate-800 p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sm text-white flex items-center gap-2">
-                    <Terminal className="w-4 h-4 text-amber-400" />
-                    1. One-Command AWS Deployment (Python Boto3)
-                  </span>
-                  <span className="text-xs font-mono text-slate-400">backend/aws_deploy.py</span>
-                </div>
-                <pre className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono text-slate-300 overflow-x-auto leading-relaxed">
-{`# Build the production React + Tailwind bundle
-cd ~/workspace/projects/course/AWS/frontend
-npm run build
-
-# Deploy to S3 + CloudFront + CloudWatch via Python script
-cd ../backend
-python3 aws_deploy.py --bucket siddhesh-course-aws-site --region us-east-1`}
-                </pre>
+            <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+              <div className="font-bold text-white text-sm flex items-center gap-2">
+                <Globe className="w-4 h-4 text-amber-400" /> 2. Amazon CloudFront CDN
               </div>
-
-              <div className="rounded-2xl bg-slate-900 border border-slate-800 p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sm text-white flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    2. Accessibility & Monitoring Verification
-                  </span>
-                  <span className="text-xs font-mono text-emerald-400">HTTP 200 OK Verified</span>
-                </div>
-                <pre className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono text-slate-300 overflow-x-auto leading-relaxed">
-{`# Verify website accessibility and headers
-curl -I http://localhost:5173
-curl -s http://localhost:8000/api/health
-
-# Sample Output:
-# HTTP/1.1 200 OK
-# Content-Type: text/html
-# X-CloudWatch-Monitor: Active`}
-                </pre>
+              <p className="text-slate-400 leading-relaxed">
+                Delivers S3 objects globally over TLS 1.3 HTTPS using Origin Access Control (OAC) and supports instant path-based cache invalidation (`/*`) to purge stale edge objects.
+              </p>
+            </div>
+            <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+              <div className="font-bold text-white text-sm flex items-center gap-2">
+                <Activity className="w-4 h-4 text-emerald-400" /> 3. Amazon CloudWatch &amp; Synthetics
               </div>
+              <p className="text-slate-400 leading-relaxed">
+                Executes live socket probes to measure DNS, TCP, TLS handshake, and TTFB latencies, logs structured events, and evaluates user-defined metric alarms in real time.
+              </p>
             </div>
           </div>
         </section>
       </main>
 
-      {/* 5. FOOTER CONTAINING PROJECT DETAILS */}
-      <footer className="bg-slate-950 border-t border-slate-800 py-10 text-xs text-slate-400">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid sm:grid-cols-3 gap-8 pb-8 border-b border-slate-800/80">
-            <div className="space-y-2">
-              <div className="font-bold text-slate-200 text-sm flex items-center gap-2">
-                <Cloud className="w-4 h-4 text-amber-400" />
-                CloudPulse AWS Project
-              </div>
-              <p className="text-slate-400 leading-relaxed">
-                Cloud-Based Static Website with Monitoring built using React, Tailwind CSS, and Python AWS CloudWatch/Boto3 integration.
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="font-semibold text-slate-200 uppercase tracking-wider font-mono text-[11px]">
-                AWS Services Utilized
-              </div>
-              <ul className="space-y-1 text-slate-400">
-                <li>• Amazon S3 (Static Asset Object Storage)</li>
-                <li>• Amazon CloudFront (Global CDN &amp; HTTPS/TLS 1.3)</li>
-                <li>• Amazon CloudWatch (Metrics, Dashboards &amp; Alarms)</li>
-              </ul>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="font-semibold text-slate-200 uppercase tracking-wider font-mono text-[11px]">
-                Course Project Metadata
-              </div>
-              <p>Author: <span className="text-slate-200">Siddhesh (siddhesh@SiddheshLenovo)</span></p>
-              <p>Workspace: <code className="text-amber-300">~/workspace/projects/course/AWS</code></p>
-              <p>Stack: React 19 + Tailwind CSS v4 + Python 3 Telemetry API</p>
-            </div>
+      {/* Footer */}
+      <footer className="bg-slate-950 border-t border-slate-800 py-8 text-xs text-slate-400 mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <strong className="text-white">CloudPulse AWS Live Console</strong> — React + Tailwind CSS Frontend &amp; Python Real-Time Cloud Backend
           </div>
-
-          <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-slate-500">
-            <span>© {new Date().getFullYear()} Cloud-Based Website with Monitoring — AWS Course Project</span>
-            <span className="font-mono text-emerald-400">Status: Accessible &amp; Monitored</span>
+          <div className="font-mono text-slate-500">
+            Workspace: <code className="text-amber-400">~/workspace/projects/course/AWS</code>
           </div>
         </div>
       </footer>
